@@ -1,6 +1,65 @@
 #include "fmopl2.h"
 
 
+void FMOPL2_DoShiftRegisters(fmopl2_t *chip, int sel)
+{
+    int j;
+    int to = sel;
+    int from = sel ^ 1;
+    int rot = sel == 0 ? 1 : 0;
+#define CH_ROTATE(x) rot ? ((x << 1) | ((x >> 8) & 1)) : x
+#define OP_ROTATE(x) rot ? ((x << 1) | ((x >> 17) & 1)) : x
+    // channel registers
+
+    // fnum
+    for (j = 0; j < 10; j++)
+        chip->ch_fnum[j][to] = CH_ROTATE(chip->ch_fnum[j][from]);
+    // block
+    for (j = 0; j < 3; j++)
+        chip->ch_block[j][to] = CH_ROTATE(chip->ch_block[j][from]);
+    // kon
+    chip->ch_keyon[to] = CH_ROTATE(chip->ch_keyon[from]);
+    // connect
+    chip->ch_connect[to] = CH_ROTATE(chip->ch_connect[from]);
+    // feedback
+    for (j = 0; j < 3; j++)
+        chip->ch_fb[j][to] = CH_ROTATE(chip->ch_fb[j][from]);
+    // multi
+    for (j = 0; j < 4; j++)
+        chip->op_multi[j][to] = OP_ROTATE(chip->op_multi[j][from]);
+    // ksr
+    chip->op_ksr[to] = OP_ROTATE(chip->op_ksr[from]);
+    // egt
+    chip->op_egt[to] = OP_ROTATE(chip->op_egt[from]);
+    // connect
+    chip->op_vib[to] = OP_ROTATE(chip->op_vib[from]);
+    // connect
+    chip->op_am[to] = OP_ROTATE(chip->op_am[from]);
+    // tl
+    for (j = 0; j < 6; j++)
+        chip->op_tl[j][to] = OP_ROTATE(chip->op_tl[j][from]);
+    // ksl
+    for (j = 0; j < 2; j++)
+        chip->op_ksl[j][to] = OP_ROTATE(chip->op_ksl[j][from]);
+    // ar
+    for (j = 0; j < 4; j++)
+        chip->op_ar[j][to] = OP_ROTATE(chip->op_ar[j][from]);
+    // dr
+    for (j = 0; j < 4; j++)
+        chip->op_dr[j][to] = OP_ROTATE(chip->op_dr[j][from]);
+    // sl
+    for (j = 0; j < 4; j++)
+        chip->op_sl[j][to] = OP_ROTATE(chip->op_sl[j][from]);
+    // rr
+    for (j = 0; j < 4; j++)
+        chip->op_rr[j][to] = OP_ROTATE(chip->op_rr[j][from]);
+    // wf
+    for (j = 0; j < 2; j++)
+        chip->op_wf[j][to] = OP_ROTATE(chip->op_wf[j][from]);
+#undef CH_ROTATE
+#undef OP_ROTATE
+}
+
 void FMOPL2_Clock(fmopl2_t *chip)
 {
     chip->mclk1 = !chip->input.mclk;
@@ -96,7 +155,7 @@ void FMOPL2_Clock(fmopl2_t *chip)
 
     chip->fsm_mc = !(chip->fsm_sel[7] || (chip->fsm_cnt & 2) != 0);
 
-    chip->fsm_out[0] = (chip->connect || chip->fsm_sel[0] || chip->fsm_sel[1] || chip->fsm_mc) && !chip->fsm_sel[2];
+    chip->fsm_out[0] = ((chip->connect_l[1] & 2) != 0 || chip->fsm_sel[0] || chip->fsm_sel[1] || chip->fsm_mc) && !chip->fsm_sel[2];
 
     chip->fsm_out[1] = chip->fsm_mc && !chip->fsm_sel[3] && !chip->fsm_sel[4];
 
@@ -314,4 +373,309 @@ void FMOPL2_Clock(fmopl2_t *chip)
 
     if (chip->csm_load)
         chip->csm_kon = chip->reg_csm && chip->t1_load;
+
+    chip->rh_sel0 = chip->rhythm && chip->fsm_out[5];
+
+    if (chip->clk1)
+    {
+        chip->rh_sel[0] = (chip->rh_sel[1] << 1) | chip->rh_sel0;
+    }
+    if (chip->clk2)
+    {
+        chip->rh_sel[1] = cihp->rh_sel[0];
+    }
+
+    chip->keyon_comb = chip->keyon || chip->csm_kon
+        || (chip->rh_sel0 && (chip->reg_rh_kon & 16) != 0) // bd0
+        || ((chip->rh_sel[1] & 1) != 0 && (chip->reg_rh_kon & 1) != 0) // hh
+        || ((chip->rh_sel[1] & 2) != 0 && (chip->reg_rh_kon & 4) != 0) // tom
+        || ((chip->rh_sel[1] & 4) != 0 && (chip->reg_rh_kon & 16) != 0) // bd1
+        || ((chip->rh_sel[1] & 8) != 0 && (chip->reg_rh_kon & 8) != 0) // sd
+        || ((chip->rh_sel[1] & 16) != 0 && (chip->reg_rh_kon & 2) != 0); // tc
+
+    if (chip->reset1)
+        chip->address = 0;
+    else if ((chip->data_latch & 0xe0) != 0 && chip->write0)
+        chip->address = chip->data_latch;
+
+    if (chip->write0)
+        chip->address_valid = (chip->data_latch & 0xe0) != 0;
+
+    if (chip->reset1)
+        chip->data = 0;
+    else if (chip->address_valid && chip->write1)
+        chip->data = chip->data_latch;
+
+    if (chip->clk1)
+    {
+        chip->address_valid_l[0] = chip->address_valid || chip->address_valid2;
+
+        if (chip->fsm_out[8] || chip->slot_cnt1_of)
+            chip->slot_cnt1[0] = 0;
+        else
+            chip->slot_cnt1[0] = (chip->slot_cnt1[1] + 1) & 7;
+
+        if (chip->fsm_out[8] || (chip->slot_cnt1_of && (chip->slot_cnt2[1] & 2) != 0))
+            chip->slot_cnt2[0] = 0;
+        else
+            chip->slot_cnt2[0] = (chip->slot_cnt2[1] + chip->slot_cnt1_of) & 3;
+    }
+    if (chip->clk2)
+    {
+        chip->address_valid_l[1] = chip->address_valid_l[0];
+
+        chip->slot_cnt1[1] = chip->slot_cnt1[0];
+        chip->slot_cnt2[1] = chip->slot_cnt2[0];
+    }
+    chip->address_valid2 = chip->address_valid_l[1] && !chip->write0;
+
+    chip->slot_cnt1_of = (chip->slot_cnt1[1] & 5) == 5;
+
+    chip->slot_cnt = (chip->slot_cnt2[1] << 3) | chip->slot_cnt1[1];
+    
+    chip->addr_sel = chip->slot_cnt & 1;
+
+    chip->addr_sel |= (((chip->slot_cnt >> 1) + chip->addr_add) & 7) << 1;
+
+    if (!chip->sel_ch)
+        chip->addr_sel |= chip->slot_cnt & 16;
+
+    chip->addr_match = chip->addr_sel == (chip->address & 31) && chip->address_valid2;
+
+    chip->sel_20 = (chip->address & 0xe0) == 0x20 && chip->addr_match;
+    chip->sel_40 = (chip->address & 0xe0) == 0x40 && chip->addr_match;
+    chip->sel_60 = (chip->address & 0xe0) == 0x60 && chip->addr_match;
+    chip->sel_80 = (chip->address & 0xe0) == 0x80 && chip->addr_match;
+    chip->sel_e0 = (chip->address & 0xe0) == 0xe0 && chip->addr_match && (chip->reg_test & 32) != 0;
+
+    chip->sel_a0 = (chip->address & 0xe0) == 0xa0 && chip->addr_match;
+    chip->sel_b0 = (chip->address & 0xe0) == 0xb0 && chip->addr_match;
+    chip->sel_c0 = (chip->address & 0xe0) == 0xc0 && chip->addr_match;
+
+    chip->sel_ch = (chip->address & 0xe0) == 0xa0 || (chip->address & 0xe0) == 0xb0 || (chip->address & 0xe0) == 0xc0;
+
+    chip->addr_add = chip->sel_ch && ((chip->address & 8) != 0 || (chip->address & 6) == 6);
+
+    if (chip->clk1)
+    {
+        int i;
+        FMOPL2_DoShiftRegisters(chip, 0);
+
+        if (chip->reset1)
+        {
+            for (i = 0; i < 10; i++)
+                chip->ch_fnum[i][0] &= ~1;
+            for (i = 0; i < 3; i++)
+                chip->ch_block[i][0] &= ~1;
+            chip->ch_keyon[0] &= ~1;
+            chip->ch_connect[0] &= ~1;
+            for (i = 0; i < 3; i++)
+                chip->ch_fb[i][0] &= ~1;
+
+            for (i = 0; i < 4; i++)
+                chip->op_multi[i][0] &= ~1;
+            chip->op_ksr[0] &= ~1;
+            chip->op_egt[0] &= ~1;
+            chip->op_vib[0] &= ~1;
+            chip->op_am[0] &= ~1;
+            for (i = 0; i < 6; i++)
+                chip->op_tl[i][0] &= ~1;
+            for (i = 0; i < 2; i++)
+                chip->op_ksl[i][0] &= ~1;
+            for (i = 0; i < 4; i++)
+                chip->op_ar[i][0] &= ~1;
+            for (i = 0; i < 4; i++)
+                chip->op_dr[i][0] &= ~1;
+            for (i = 0; i < 4; i++)
+                chip->op_sl[i][0] &= ~1;
+            for (i = 0; i < 4; i++)
+                chip->op_rr[i][0] &= ~1;
+            for (i = 0; i < 2; i++)
+                chip->op_wf[i][0] &= ~1;
+        }
+        else
+        {
+            if (chip->sel_a0)
+            {
+                for (i = 0; i < 8; i++)
+                    chip->ch_fnum[i][0] &= ~1;
+
+                for (i = 0; i < 8; i++)
+                    chip->ch_fnum[i][0] |= (chip->data >> i) & 1;
+            }
+            if (chip->sel_b0)
+            {
+                for (i = 8; i < 10; i++)
+                    chip->ch_fnum[i][0] &= ~1;
+                for (i = 0; i < 3; i++)
+                    chip->ch_block[i][0] &= ~1;
+                chip->ch_keyon[0] &= ~1;
+
+                for (i = 8; i < 10; i++)
+                    chip->ch_fnum[i][0] |= (chip->data >> (i - 8)) & 1;
+                for (i = 0; i < 3; i++)
+                    chip->ch_block[i][0] |= (chip->data >> (i + 2)) & 1;
+                chip->ch_keyon[0] |= (chip->data >> 5) & 1;
+            }
+            if (chip->sel_c0)
+            {
+                chip->ch_connect[0] &= ~1;
+                for (i = 0; i < 3; i++)
+                    chip->ch_fb[i][0] &= ~1;
+
+                chip->ch_connect[0] |= (chip->data >> 0) & 1;
+                for (i = 0; i < 3; i++)
+                    chip->ch_fb[i][0] |= (chip->data >> (i + 1)) & 1;
+            }
+            if (chip->sel_20)
+            {
+                for (i = 0; i < 4; i++)
+                    chip->op_multi[i][0] &= ~1;
+                chip->op_ksr[0] &= ~1;
+                chip->op_egt[0] &= ~1;
+                chip->op_vib[0] &= ~1;
+                chip->op_am[0] &= ~1;
+
+                for (i = 0; i < 4; i++)
+                    chip->op_multi[i][0] |= (chip->data >> i) & 1;
+                chip->op_ksr[0] |= (chip->data >> 4) & 1;
+                chip->op_egt[0] |= (chip->data >> 5) & 1;
+                chip->op_vib[0] |= (chip->data >> 6) & 1;
+                chip->op_am[0] |= (chip->data >> 7) & 1;
+            }
+            if (chip->sel_40)
+            {
+                for (i = 0; i < 6; i++)
+                    chip->op_tl[i][0] &= ~1;
+                for (i = 0; i < 2; i++)
+                    chip->op_ksl[i][0] &= ~1;
+
+                for (i = 0; i < 6; i++)
+                    chip->op_tl[i][0] |= (chip->data >> i) & 1;
+                for (i = 0; i < 2; i++)
+                    chip->op_ksl[i][0] |= (chip->data >> (i + 6)) & 1;
+            }
+            if (chip->sel_60)
+            {
+                for (i = 0; i < 4; i++)
+                    chip->op_ar[i][0] &= ~1;
+                for (i = 0; i < 4; i++)
+                    chip->op_dr[i][0] &= ~1;
+
+                for (i = 0; i < 4; i++)
+                    chip->op_ar[i][0] |= (chip->data >> (i + 4)) & 1;
+                for (i = 0; i < 4; i++)
+                    chip->op_dr[i][0] |= (chip->data >> i) & 1;
+            }
+            if (chip->sel_80)
+            {
+                for (i = 0; i < 4; i++)
+                    chip->op_sl[i][0] &= ~1;
+                for (i = 0; i < 4; i++)
+                    chip->op_rr[i][0] &= ~1;
+
+                for (i = 0; i < 4; i++)
+                    chip->op_sl[i][0] |= (chip->data >> (i + 4)) & 1;
+                for (i = 0; i < 4; i++)
+                    chip->op_rr[i][0] |= (chip->data >> i) & 1;
+            }
+            if (chip->sel_e0)
+            {
+                for (i = 0; i < 2; i++)
+                    chip->op_wf[i][0] &= ~1;
+
+                for (i = 0; i < 2; i++)
+                    chip->op_wf[i][0] |= (chip->data >> i) & 1;
+            }
+        }
+    }
+    if (chip->clk2)
+    {
+        FMOPL2_DoShiftRegisters(chip, 1);
+    }
+
+    {
+        int shift = 0;
+        int i;
+
+        if (chip->fsm_out[13])
+            shift = 8;
+        else if (chip->fsm_out[12])
+            shift = 5;
+        else if (chip->fsm_out[15])
+            shift = 2;
+
+        chip->block = 0;
+        chip->fnum = 0;
+        for (i = 0; i < 3; i++)
+            chip->block |= ((chip->ch_block[i][1] >> shift) & 1) << i;
+        for (i = 0; i < 10; i++)
+            chip->fnum |= ((chip->ch_fnum[i][1] >> shift) & 1) << i;
+        chip->keyon = (chip->ch_keyon[1] >> shift) & 1;
+        chip->connect = (chip->ch_connect[1] >> shift) & 1;
+
+        if (chip->fsm_out[13])
+            shift = 5;
+        else if (chip->fsm_out[12])
+            shift = 2;
+        else if (chip->fsm_out[15])
+            shift = 8;
+        for (i = 0; i < 3; i++)
+            chip->fb |= ((chip->ch_fb[i][1] >> shift) & 1) << i;
+
+        chip->multi = 0;
+        chip->tl = 0;
+        chip->ksl = 0;
+        chip->ar = 0;
+        chip->dr = 0;
+        chip->sl = 0;
+        chip->rr = 0;
+        chip->wf = 0;
+
+        for (i = 0; i < 4; i++)
+            chip->multi |= ((chip->op_multi[i][1] >> 17) & 1) << i;
+
+        chip->ksr = (chip->op_ksr[1] >> 17) & 1;
+        chip->egt = (chip->op_egt[1] >> 17) & 1;
+        chip->vib = (chip->op_vib[1] >> 17) & 1;
+        chip->am = (chip->op_am[1] >> 17) & 1;
+
+        for (i = 0; i < 4; i++)
+            chip->multi |= ((chip->op_multi[i][1] >> 17) & 1) << i;
+
+        for (i = 0; i < 6; i++)
+            chip->tl |= ((chip->op_tl[i][1] >> 17) & 1) << i;
+
+        for (i = 0; i < 2; i++)
+            chip->ksl |= ((chip->op_ksl[i][1] >> 17) & 1) << i;
+
+        for (i = 0; i < 4; i++)
+            chip->ar |= ((chip->op_ar[i][1] >> 17) & 1) << i;
+
+        for (i = 0; i < 4; i++)
+            chip->dr |= ((chip->op_dr[i][1] >> 17) & 1) << i;
+
+        for (i = 0; i < 4; i++)
+            chip->sl |= ((chip->op_sl[i][1] >> 17) & 1) << i;
+
+        for (i = 0; i < 4; i++)
+            chip->rr |= ((chip->op_rr[i][1] >> 17) & 1) << i;
+
+        for (i = 0; i < 2; i++)
+            chip->wf |= ((chip->op_wf[i][1] >> 17) & 1) << i;
+
+    }
+
+    if (chip->clk1)
+    {
+        chip->connect_l[0] = (chip->connect_l[1] << 1) | chip->connect;
+        chip->fb_l[0][0] = chip->fb;
+        chip->fb_l[1][0] = chip->fb_l[0][1];
+    }
+    if (chip->clk2)
+    {
+        chip->connect_l[1] = chip->connect_l[0];
+        chip->fb_l[0][1] = chip->fb_l[0][0];
+        chip->fb_l[1][1] = chip->fb_l[1][0];
+    }
 }

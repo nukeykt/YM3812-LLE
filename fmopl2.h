@@ -21,7 +21,6 @@ typedef struct
     int clk2;
 
     int prescaler_reset_l[2];
-    int prescaler_reset;
     int prescaler_cnt[2];
     int prescaler_l1[2];
     int prescaler_l2[2];
@@ -29,14 +28,13 @@ typedef struct
     int reset1;
 
     int fsm_reset_l[2];
-    int fsm_reset;
+    int fsm_reset; // wire
     int fsm_cnt1[2];
     int fsm_cnt2[2];
-    int fsm_cnt1_of;
-    int fsm_cnt2_of;
+    int fsm_cnt1_of; // wire
+    int fsm_cnt2_of; // wire
     int fsm_sel[13];
-    int fsm_cnt;
-    int fsm_mc;
+    int fsm_cnt; // wire
     int fsm_ch_out;
     int fsm_do_fb;
     int fsm_load_fb;
@@ -85,8 +83,8 @@ typedef struct
     int reg_dv;
     int rhythm;
     int reg_rh_kon;
-    int reg_sel4_wr;
-    int reg_sel4_rst;
+    int reg_sel4_wr; // wire
+    int reg_sel4_rst; // wire
     int reg_t1_mask;
     int reg_t2_mask;
     int reg_t1_start;
@@ -107,7 +105,7 @@ typedef struct
     int t1_start;
     int t1_start_l[2];
     int t2_start_l[2];
-    int t1_load;
+    int t1_load; // wire
     int csm_load_l;
     int csm_load;
     int csm_kon;
@@ -154,6 +152,37 @@ typedef struct
     int op_sl[4][2];
     int op_rr[4][2];
     int op_wf[2][2];
+    int op_mod[2];
+    int op_value; // wire
+
+    int eg_load1_l;
+    int eg_load1;
+    int eg_load2_l;
+    int eg_load2;
+    int eg_load3_l;
+    int eg_load3;
+
+    int trem_carry[2];
+    int trem_value[2];
+    int trem_dir[2];
+    int trem_step;
+    int trem_out;
+    int trem_of[2];
+
+    int eg_timer[2];
+    int eg_timer_masked[2];
+    int eg_carry[2];
+    int eg_mask[2];
+    int eg_subcnt[2];
+    int eg_subcnt_l[2];
+    int eg_sync_l[2];
+    int eg_timer_low;
+    int eg_shift;
+    int eg_state[2][2];
+    int eg_level[9][2];
+    int eg_out[2];
+    int eg_dokon; // wire
+    int eg_mute[2];
 
     int block;
     int fnum;
@@ -175,12 +204,59 @@ typedef struct
     int rr;
     int wf;
 
+    int lfo_cnt[2];
+    int t1_step; // wire
+    int t2_step; // wire
+    int am_step; // wire
+    int vib_step; // wire
+    int vib_cnt[2];
+    int pg_phase[19][2];
+    int dbg_serial[2];
+
+    int noise_lfsr[2];
+
+    int hh_load;
+    int tc_load;
+    int hh_bit2;
+    int hh_bit3;
+    int hh_bit7;
+    int hh_bit8;
+    int tc_bit3;
+    int tc_bit5;
+    int op_logsin[2];
+    int op_shift[2];
+    int op_pow[2];
+    int op_mute[2];
+    int op_sign[2];
+    int op_fb[2][13][2];
+
+    int pg_out; // wire
+    int pg_out_rhy; // wire
+
+    int accm_value[2];
+    int accm_shifter[2];
+    int accm_load1_l;
+    int accm_load1;
+    int accm_clamplow;
+    int accm_clamphigh;
+    int accm_top;
+    int accm_sel[2];
+    int accm_mo[2];
+
+    int o_sh;
+    int o_mo;
+    int o_irq_pull;
+    int o_sy;
+
     int data_o;
     int data_z;
 
-    int tm_w1;
-    int tm_w2;
-    int tm_w3;
-    int tm_w4;
+    int o_clk1;
+    int o_clk2;
+    int o_reset1;
+    int o_write0;
+    int o_write1;
+    int o_data_latch;
+
 } fmopl2_t;
 

@@ -427,7 +427,7 @@ void FMOPL2_Clock(fmopl2_t *chip)
         chip->rh_sel[1] = chip->rh_sel[0];
     }
 
-    if (chip->clk1) // opt
+    //if (chip->clk1) // opt
     {
         chip->keyon_comb = chip->keyon || chip->csm_kon
             || (chip->rh_sel0 && (chip->reg_rh_kon & 16) != 0) // bd0
@@ -455,7 +455,7 @@ void FMOPL2_Clock(fmopl2_t *chip)
 
     if (chip->clk1)
     {
-        chip->address_valid_l[0] = chip->address_valid || chip->address_valid2;
+        chip->address_valid_l[0] = (chip->address_valid && chip->write1) || chip->address_valid2;
 
         int slot_cnt1_of = (chip->slot_cnt1[1] & 5) == 5;
 

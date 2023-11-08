@@ -121,18 +121,6 @@ typedef struct
     int slot_cnt1[2];
     int slot_cnt2[2];
     int slot_cnt;
-    int slot_cnt1_of;
-    int addr_sel;
-    int addr_match;
-    int addr_add;
-    int sel_20;
-    int sel_40;
-    int sel_60;
-    int sel_80;
-    int sel_e0;
-    int sel_a0;
-    int sel_b0;
-    int sel_c0;
     int sel_ch;
 
     int ch_fnum[10][2];

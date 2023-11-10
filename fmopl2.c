@@ -874,7 +874,6 @@ void FMOPL2_Clock(fmopl2_t *chip)
         int rate12 = rate_hi == 12;
         int rate13 = rate_hi == 13;
         int rate14 = rate_hi == 14;
-        int rate15 = rate_hi == 15;
 
         int inclow = 0;
 
@@ -1139,6 +1138,8 @@ void FMOPL2_Clock(fmopl2_t *chip)
         {
             chip->pg_out |= ((chip->pg_phase[i+9][1] >> 17) & 1) << i;
         }
+
+        chip->dbg_serial[1] = chip->dbg_serial[0];
     }
 
     {

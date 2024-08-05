@@ -893,10 +893,6 @@ void FMOPL2_Clock(fmopl2_t *chip)
 
         int maxrate = rate_hi == 15;
 
-        int rate12 = rate_hi == 12;
-        int rate13 = rate_hi == 13;
-        int rate14 = rate_hi == 14;
-
         int inclow = 0;
 
         if (rate_hi < 12 && rate != 0 && chip->eg_subcnt[1])
